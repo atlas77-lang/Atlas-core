@@ -1,6 +1,6 @@
 [package]
 name = "atlas-core"
-version = "0.7.0-beta2"
+version = "0.7.0-beta3"
 authors = ["Gipson62 <j.h.gipson62@gmail.com>"]
 description = "(In Alpha) Embeddable functional programming language"
 keywords = ["language", "tool", "programming-language", "language-agnostic"]
