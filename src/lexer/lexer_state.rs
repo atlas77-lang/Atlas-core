@@ -18,8 +18,7 @@ pub struct LexerState<'lex> {
     /// to allow lookahead operations. `Peekable` enables efficient peeking at the
     /// next character without advancing the iterator.
     txt: Peekable<Chars<'lex>>,
-    ///
-    pub path: &'static str,
+    pub path: &'lex str,
 }
 
 impl<'lex> LexerState<'lex> {
@@ -31,7 +30,7 @@ impl<'lex> LexerState<'lex> {
     ///
     /// # Returns
     /// A new `LexerState` instance ready for use.
-    pub fn new(current_pos: BytePos, txt: &'lex str, path: &'static str) -> Self {
+    pub fn new(current_pos: BytePos, txt: &'lex str, path: &'lex str) -> Self {
         Self {
             current_pos,
             txt: txt.chars().peekable(),

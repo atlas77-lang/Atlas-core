@@ -7,8 +7,6 @@
  * It's currently in development, more information coming soon
 */
 
-#![warn(missing_docs, unused)]
-
 //! # atlas-Core
 //!
 //! `atlas-core` is the foundational library for a language creation tool designed to assist users in developing languages.
@@ -31,9 +29,9 @@ pub mod prelude {
     pub use crate::map;
     pub use crate::tokens;
     pub use crate::utils::{case::Case, span::*};
-    pub use internment::Intern;
 }
 
+/// A macro to create a `HashMap` with the given key-value pairs.
 #[macro_export]
 macro_rules! map {
     ($name:ident, &key: ty, &val: ty) => {

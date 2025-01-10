@@ -1,6 +1,6 @@
 [package]
 name = "atlas-core"
-version = "0.7.0-beta3"
+version = "0.7.0"
 authors = ["Gipson62 <j.h.gipson62@gmail.com>"]
 description = "(In Alpha) Embeddable functional programming language"
 keywords = ["language", "tool", "programming-language", "language-agnostic"]
@@ -15,4 +15,4 @@ name = "atlas_core"
 
 [dependencies]
 heck = "0.5.0"
-internment = "0.8.6"
+serde = { version = "1.0.217", features = ["derive"] }

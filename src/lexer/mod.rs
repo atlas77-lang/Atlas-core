@@ -22,7 +22,7 @@ macro_rules! lexer_builder {
             }
         },
         Keyword {
-            $($x:literal),* $(,)?
+            $($x:literal => $name:ident),* $(,)?
         },
         Number {
             trailing {
@@ -41,18 +41,19 @@ macro_rules! lexer_builder {
                     $($sym2 => $sym3 => $variant1, $variant2),*
                 }
             },
-            Number {$($trail_enum($trail_type),)*}
+            Number {$($trail_enum($trail_type),)*},
+            Keyword {$($x => $name),*}
         }
-        keywords!($($x,)*);
+        keywords!($($x => $name,)*);
         pub type System = fn(char, &mut LexerState) -> Option<Token>;
         #[derive(Debug, Default)]
-        pub struct AtlasLexer {
+        pub struct AtlasLexer<'lex> {
             sys: Vec<System>,
-            path: &'static str,
+            path: &'lex str,
             pub current_pos: BytePos,
             pub source: String,
         }
-        impl AtlasLexer {
+        impl AtlasLexer<'_> {
             pub fn default() -> Self {
                 let mut lexer = AtlasLexer::new("<stdin>", String::new());
                 if $number {lexer.add_system(default_number);}
@@ -62,14 +63,7 @@ macro_rules! lexer_builder {
                 if $string {lexer.add_system(default_string);}
                 lexer
             }
-            pub fn new(path: &'static str, source: String) -> Self {
-                Self {
-                    sys: vec![],
-                    path,
-                    current_pos: BytePos::from(0),
-                    source,
-                }
-            }
+
 
             pub fn set_source(&mut self, source: String) -> &mut Self {
                 self.source = source;
@@ -85,15 +79,23 @@ macro_rules! lexer_builder {
                 self.sys.push(s);
                 self
             }
-
+        }
+        impl<'lex> AtlasLexer<'lex> {
+            pub fn new(path: &'lex str, source: String) -> Self {
+                Self {
+                    sys: vec![],
+                    path,
+                    current_pos: BytePos::from(0),
+                    source,
+                }
+            }
             //A way of handling errors will come later
-            pub fn tokenize(&mut self) -> Result<Vec<Token>, ()> {
+            pub fn tokenize(&'lex mut self) -> Result<Vec<Token>, ()> {
                 let mut tok: Vec<Token> = vec![];
                 tok.push(Token::new(
                     Span {
                         start: self.current_pos,
                         end: self.current_pos,
-                        path: self.path,
                     },
                     TokenKind::SoI,
                 ));
@@ -144,13 +146,16 @@ macro_rules! lexer_builder {
                     Span {
                         start: self.current_pos,
                         end: self.current_pos,
-                        path: self.path,
                     },
                     TokenKind::EoI,
                 ));
                 return Ok(tok);
             }
         }
+        /// By default it returns either an "Int" or a "Float" based on the presence of a dot
+        /// It'll return user defined types if there is a trailing
+        /// 
+        ///In future versions, I'll add a way to make it user defined
         pub fn default_number(c: char, state: &mut LexerState) -> Option<Token> {
             if c.is_numeric() {
                 let start = state.current_pos;
@@ -187,12 +192,43 @@ macro_rules! lexer_builder {
                             }
                         }
                 }
+                //Handling trailing
+                if let Some(&'_') = state.peek() {
+                    state.next();
+                    let mut trail = String::new();
+                    trail.push('_');
+                    loop {
+                        if let Some(c) = state.peek() {
+                            if c.is_ascii_alphanumeric() {
+                                trail.push(*c);
+                                state.next();
+                            } else {
+                                break;
+                            }
+                        } else {
+                            break;
+                        }
+                    }
+                    match trail.as_str() {
+                        $(
+                            $trail_name => {
+                                return Some(Token::new(
+                                    Span {
+                                        start,
+                                        end: state.current_pos,
+                                    },
+                                    TokenKind::Literal(Literal::$trail_enum(n.parse::<$trail_type>().unwrap())),
+                                ));
+                            }
+                        )*,
+                        _ => {}
+                    }
+                }
 
                 Some(Token::new(
                     Span {
                         start,
                         end: state.current_pos,
-                        path: state.path,
                     },
                     TokenKind::Literal(if is_float {Literal::Float(n.parse::<f64>().unwrap())} else {Literal::Int(n.parse::<i64>().unwrap())})),
                 )
@@ -214,7 +250,6 @@ macro_rules! lexer_builder {
                 Span {
                     start,
                     end: state.current_pos,
-                    path: state.path,
                 },
                 tok,
             ))
@@ -239,9 +274,8 @@ macro_rules! lexer_builder {
                     Span {
                         start,
                         end: state.current_pos,
-                        path: state.path,
                     },
-                    TokenKind::Literal(Literal::StringLiteral(Intern::new(s))),
+                    TokenKind::Literal(Literal::StringLiteral(s)),
                 ));
             } else {
                 None
@@ -260,8 +294,14 @@ macro_rules! tokens {
         }, Either {
             $($sym2:literal =>  $sym3:literal => $variant2:ident, $variant3:ident ),* $(,)?
         }
-    }, Number {$($trail_enum:ident($trail_type:ty)),+ $(,)?}) => {
-        #[derive(Debug, Clone, Copy, PartialEq)]
+    }, Number {
+        $($trail_enum:ident($trail_type:ty)),+ $(,)?
+    },
+    Keyword {
+        $($x:literal => $name:ident),* $(,)?
+    }
+    ) => {
+        #[derive(Debug, Clone, PartialEq)]
         pub struct Token {
             span: Span,
             kind: TokenKind,
@@ -280,16 +320,17 @@ macro_rules! tokens {
             }
             #[inline(always)]
             pub fn kind(&self) -> TokenKind {
-                self.kind
+                self.kind.clone()
             }
         }
 
-        #[derive(Debug, Clone, Copy, PartialEq)]
+        #[derive(Debug, Clone, PartialEq)]
         pub enum Literal {
             ///Default int literal, may change in the parser based on the type of the variable
 
             Int(i64),
             $(
+                ///This one doesn't make sense as it conflicts with the default numbers literal see #4 for more information
                 $trail_enum($trail_type),
             )+
             ///Default float literal, may change in the parser based on the type of the variable
@@ -297,18 +338,20 @@ macro_rules! tokens {
 
             Bool(bool),
             //At this point, types don't exist in the parser, it's just Identifier
-            Identifier(Intern<String>),
+            Identifier(String),
 
-            StringLiteral(Intern<String>),
+            StringLiteral(String),
         }
 
-        #[derive(Debug, Clone, Copy, PartialEq)]
+        #[derive(Debug, Clone, PartialEq)]
         pub enum TokenKind {
             /// A literal see [Literal] for more information
             Literal(Literal),
 
-            /// A keyword
-            Keyword(Intern<String>),
+            /// Keywords should be replaced with KW<name>
+            $(
+                $name,
+            )*
             $(
                 $variant,
             )*
@@ -323,7 +366,7 @@ macro_rules! tokens {
             EoI,
             SoI
         }
-        //TODO: add support for multi-char symbols
+
         fn default_symbol(c: char, state: &mut LexerState) -> Option<Token> {
             let start = state.current_pos;
             let mut advanced = false;
@@ -356,7 +399,6 @@ macro_rules! tokens {
                 Span {
                     start,
                     end: state.current_pos,
-                    path: state.path,
                 },
                 tok,
             ))
@@ -366,7 +408,7 @@ macro_rules! tokens {
 /// To be done
 #[macro_export]
 macro_rules! keywords {
-    ($($x:literal),* $(,)?) => {
+    ($($x:literal => $name:ident),* $(,)?) => {
         use std::collections::HashMap;
         pub fn default_keyword(c: char, state: &mut LexerState) -> Option<Token> {
             let start = state.current_pos;
@@ -374,14 +416,14 @@ macro_rules! keywords {
             if c.is_alphabetic() || c == '_' {
                 s.push(c);
                 state.next();
-                let keywords: HashMap<Intern<String>, TokenKind> = map! {
+                let keywords: HashMap<String, TokenKind> = map! {
                     $(
-                        Intern::new(String::from($x)) => TokenKind::Keyword(Intern::new(String::from($x))),
+                        String::from($x) => TokenKind::$name,
                     )*
                 };
                 loop {
                     if let Some(c) = state.peek() {
-                        if c.is_alphabetic() || *c == '_' {
+                        if c.is_ascii_alphanumeric() || *c == '_' {
                             s.push(*c);
                             state.next();
                         } else {
@@ -391,18 +433,16 @@ macro_rules! keywords {
                         break;
                     }
                 }
-                if let Some(k) = keywords.get(&Intern::new(s.clone())) {
+                if let Some(k) = keywords.get(&s.clone()) {
                     Some(Token::new(Span {
                         start,
                         end: state.current_pos,
-                        path: state.path
-                    }, *k))
+                    }, k.clone()))
                 } else {
                     return Some(Token::new(Span {
                         start,
                         end:state.current_pos,
-                        path: state.path
-                    }, TokenKind::Literal(Literal::Identifier(Intern::new(s)))));
+                    }, TokenKind::Literal(Literal::Identifier(s))));
                 }
             } else {
                 None

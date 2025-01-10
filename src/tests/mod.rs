@@ -37,34 +37,43 @@ mod tests {
                 },
                 Either {
                     '=' => '=' => OpEq, OpAssign,
-                    '!' => '=' => OpNEq, Bang, 
-                    '.' => '.' => DoubleDot, Dot, 
+                    '!' => '=' => OpNEq, Bang,
+                    '.' => '.' => DoubleDot, Dot,
                     ':' => ':' => DoubleColon, Colon,
-                    '-' => '>' => RArrow, OpSub, 
-                    '<' => '=' => OpLessThanEq, OpLessThan, 
+                    '-' => '>' => RArrow, OpSub,
+                    '<' => '=' => OpLessThanEq, OpLessThan,
                     '>' => '=' => OpGreaterThanEq, OpGreaterThan,
-                    '&' => '&' => OpAnd, Ampersand, 
-                    '|' => '|' => OpOr, Pipe, 
-                    '~' => '>' => FatArrow, Tilde, 
+                    '&' => '&' => OpAnd, Ampersand,
+                    '|' => '|' => OpOr, Pipe,
+                    '~' => '>' => FatArrow, Tilde,
                 }
             },
             Keyword {
-                "then", "if", "else", "struct", "true", "false", "let", "import", "return", "enum", "List", "end", "do",
-                "i8", "i16", "i32", "int", "i128", "u8", "u16", "u32", "u64", "u128", "f32", "f64", "string", "List", "char",
+                "impure"    => KwImpure,
+                "then"      => KwThen,
+                "if"        => KwIf,
+                "else"      => KwElse,
+                "struct"    => KwStruct,
+                "true"      => KwTrue,
+                "false"     => KwFalse,
+                "let"       => KwLet,
+                "include"   => KwInclude,
+                "return"    => KwReturn, //will probably be removed at one point
+                "enum"      => KwEnum,
+                "end"       => KwEnd,
+                "do"        => KwDo,
+                "i64"       => I64Ty,
+                "f64"       => F64Ty,
+                "u64"       => U64Ty,
+                "char"      => CharTy,
+                "bool"      => BoolTy,
+                "str"       => StrTy,
+                "List"      => ListTy,
             },
             Number {
                 trailing {
-                    "_i8"   => i8   => I8,
-                    "_i16"  => i16  => I16,
-                    "_32"   => i32  => I32,
                     "_i64"  => i64  => I64,
-                    "_i128" => i128 => I128,
-                    "_u8"   => u8   => U8,
-                    "_u16"  => u16  => U16,
-                    "_u32"  => u32  => U32,
                     "_u64"  => u64  => U64,
-                    "_u128" => u128 => U128,
-                    "_f32"  => f32  => F32,
                     "_f64"  => f64  => F64
                 },
                 float: true,
@@ -72,9 +81,9 @@ mod tests {
                 int: true
             },
         }
-        
+
         let mut lexer = AtlasLexer::default();
-        lexer.source = String::from(":: - -> <= ~> : == !=");
+        lexer.source = String::from(":: - -> <= ~> : == != then 25_i64");
         lexer.path = "./test.atlas";
         let tokens = lexer.tokenize().unwrap();
         for token in tokens {
