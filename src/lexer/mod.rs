@@ -9,6 +9,7 @@ macro_rules! lexer_builder {
             symbol: $symbol:literal,
             keyword: $keyword:literal,
             string: $string:literal,
+            comment: $comment:literal,
             whitespace: {
                 allow_them: $allow_whitespace:literal,
                 use_system: $whitespace:literal$(,)?
@@ -56,6 +57,7 @@ macro_rules! lexer_builder {
         impl AtlasLexer<'_> {
             pub fn default() -> Self {
                 let mut lexer = AtlasLexer::new("<stdin>", String::new());
+                if $comment {lexer.add_system(default_comment);}
                 if $number {lexer.add_system(default_number);}
                 if $symbol {lexer.add_system(default_symbol);}
                 if $keyword {lexer.add_system(default_keyword);}
@@ -63,7 +65,6 @@ macro_rules! lexer_builder {
                 if $string {lexer.add_system(default_string);}
                 lexer
             }
-
 
             pub fn set_source(&mut self, source: String) -> &mut Self {
                 self.source = source;
@@ -100,6 +101,7 @@ macro_rules! lexer_builder {
                     TokenKind::SoI,
                 ));
                 loop {
+                    //This could probably reuse the previous iterator
                     let ch = self.source.chars().nth(usize::from(self.current_pos));
                     match ch {
                         Some(c) => {
@@ -281,7 +283,35 @@ macro_rules! lexer_builder {
                 None
             }
         }
-
+        /// As of now, only single line comments are supported
+        pub fn default_comment(c: char, state: &mut LexerState) -> Option<Token> {
+            let start = state.current_pos;
+            let mut s = String::new();
+            if c == '/' && state.peek() == Some(&'/') {
+                state.next();
+                state.next();
+                loop {
+                    if let Some(c) = state.peek() {
+                        if *c == '\n' {
+                            break;
+                        }
+                        s.push(*c);
+                        state.next();
+                    } else {
+                        break;
+                    }
+                }
+                return Some(Token::new(
+                    Span {
+                        start,
+                        end: state.current_pos,
+                    },
+                    TokenKind::Comments(s),
+                ));
+            } else {
+                None
+            }
+        }
     };
 }
 
@@ -359,6 +389,7 @@ macro_rules! tokens {
                 $variant2,
                 $variant3,
             )*
+            Comments(String),
             WhiteSpace,
             NewLine,
             Tabulation,
@@ -366,8 +397,7 @@ macro_rules! tokens {
             EoI,
             SoI
         }
-
-        fn default_symbol(c: char, state: &mut LexerState) -> Option<Token> {
+        pub fn default_symbol(c: char, state: &mut LexerState) -> Option<Token> {
             let start = state.current_pos;
             let mut advanced = false;
             let tok = match c {

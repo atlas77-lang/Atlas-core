@@ -10,6 +10,7 @@ mod tests {
                 symbol: true,
                 keyword: true,
                 string: true,
+                comment: true,
                 whitespace: {
                     allow_them: false,
                     use_system: true,
@@ -83,7 +84,11 @@ mod tests {
         }
 
         let mut lexer = AtlasLexer::default();
-        lexer.source = String::from(":: - -> <= ~> : == != then 25_i64");
+        lexer.source = String::from(r#"
+            //this is a comment
+            impure if else struct true false let include return enum end do i64 f64 u64 char bool str List
+            :: - -> <= ~> : == != then 25_i64
+        "#);
         lexer.path = "./test.atlas";
         let tokens = lexer.tokenize().unwrap();
         for token in tokens {

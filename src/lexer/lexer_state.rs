@@ -44,6 +44,7 @@ impl<'lex> LexerState<'lex> {
     /// # Returns
     /// - `Some(char)`: The next character if one exists.
     /// - `None`: If the iterator has reached the end of the source string.
+    #[inline(always)]
     pub fn next(&mut self) -> Option<char> {
         self.current_pos = self.current_pos.shift_by(1);
         self.txt.next()
@@ -57,6 +58,7 @@ impl<'lex> LexerState<'lex> {
     ///
     /// Peeking allows lookahead operations, which are often necessary in lexical analysis
     /// to decide how to parse the next tokens without consuming them.
+    #[inline(always)]
     pub fn peek(&mut self) -> Option<&char> {
         self.txt.peek()
     }
